@@ -1,6 +1,6 @@
 """
 py_textrpglib
-A text-based role-playing game library for Python developers
+: A text-based role-playing game library for Python developers
 
 Number formatting rules
 : Money is given in US dollar cent amounts.
@@ -27,4 +27,7 @@ __all__ = [
     "AbilityCheck",
     "DialogBranch",
     "MultipleChoice",
+    "player",
 ]
+
+player = Player("Default_Player_Name")
