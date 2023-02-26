@@ -7,8 +7,8 @@ class MultipleChoice:
     def __init__(
         self,
         message: str,
-        options: tuple[str],
-        outcomes: tuple[tuple[Callable]],
+        options: list[str],
+        outcomes: list[list[Callable]],
     ):
         self.message = message
         self.options = options

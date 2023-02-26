@@ -3,7 +3,7 @@ from typing import Callable
 
 
 class AbilityCheck:
-    def __init__(self, on_pass: tuple[Callable], on_fail: tuple[Callable]):
+    def __init__(self, on_pass: list[Callable], on_fail: list[Callable]):
         self.on_pass = on_pass
         self.on_fail = on_fail
 
