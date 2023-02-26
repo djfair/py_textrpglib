@@ -1,4 +1,4 @@
-from containable import Containable, dataclass
+from .containable import Containable, dataclass
 
 
 @dataclass

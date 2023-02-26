@@ -1,5 +1,5 @@
-from dice import Dice
-from containable_classes import Containable, Armor, Item, Spell, Weapon
+from ..dice import Dice
+from ..containable_classes import Armor, Item, Spell, Weapon
 
 
 class Player:
@@ -12,7 +12,7 @@ class Player:
 
     def __init__(self, name: str) -> None:
         self.name = name
-        self.hp = 10
+        self.hp = self.HitPoints()
         self.ac = 10
         self.scores = self.Scores(outer=self)
         self.slots = self.Slots(outer=self)
@@ -21,6 +21,22 @@ class Player:
         self.spells = self.SpellBook(outer=self)
         self.money = self.Money(outer=self)
         self.roll = self.Roll(outer=self)
+
+    class HitPoints:
+        def __init__(self) -> None:
+            self._hp = 10
+            self._max = 10
+
+        def __call__(self) -> int:
+            return self._hp
+
+        def max(self) -> int:
+            return self._max
+
+        def heal(self, amount: int) -> None:
+            if self._hp + amount > self._max:
+                self._hp = 0 + self._max
+            self._hp += amount
 
     class Scores:
         def __init__(self, outer) -> None:
@@ -57,7 +73,10 @@ class Player:
             if constitution is not None:
                 self.constitution = constitution
 
-            self.max_hp = 10 + (self.strength - 10) // 2 + (self.constitution - 10) // 2
+            self.outer.hp.max = (
+                10 + (self.strength - 10) // 2 + (self.constitution - 10) // 2
+            )
+            self.outer.ac = 10 + (self.dexterity - 10) // 2 + self.outer.slots.armor.mod
             self.initiative = (self.dexterity - 10) // 2 + (self.intelligence - 10) // 2
 
             return self.outer
@@ -80,12 +99,10 @@ class Player:
                 self.outer.ac = 10 + self.outer.scores.dexterity + self.armor.mod
             elif isinstance(armor_or_weapon, Weapon):
                 self.weapon = armor_or_weapon
-
             return self.outer
 
         def stow_armor(self):
             self.equip(Armor(name="No armor", cost=0, desc="No armor", mod=0))
-
             return self.outer
 
         def stow_weapon(self):
@@ -98,13 +115,13 @@ class Player:
                     damage=Dice(0, 4),
                 )
             )
-
             return self.outer
 
     class Weapons:
         def __init__(self, outer) -> None:
             self._contents: list[Weapon] = []
             self.outer = outer
+            self.failed: dict[str, tuple[Weapon, str]] = {}
 
         def __call__(self) -> list[Weapon]:
             return self._contents
@@ -112,8 +129,8 @@ class Player:
         def len(self) -> int:
             return len(self._contents)
 
-        def add(self, *new_weapons: Weapon, return_detail: bool = False):
-            failed: dict[str, tuple[Weapon, str]] = {}
+        def add(self, *new_weapons: Weapon):
+            self.failed: dict[str, tuple[Weapon, str]] = {}
             for new_weapon in new_weapons:
                 for owned_weapon in self._contents:
                     if (
@@ -123,21 +140,20 @@ class Player:
                         owned_weapon.ammo += new_weapon.ammo  # type: ignore
                         break
                     if owned_weapon.name == new_weapon.name and new_weapon.ammo is None:
-                        failed[new_weapon.name] = (
+                        self.failed[new_weapon.name] = (
                             new_weapon,
                             "Failed: Weapon already owned.",
                         )
                 else:
                     self._contents.append(new_weapon)
 
-            if return_detail is False:
-                return self.outer
-            return failed, self.outer
+            return self.outer
 
     class Inventory:
         def __init__(self, outer) -> None:
             self._contents: list[Item | Armor] = []
             self.outer = outer
+            self.failed: dict[str, tuple[Item | Armor, str]] = {}
 
         def __call__(self) -> list[Item | Armor]:
             return self._contents
@@ -145,8 +161,8 @@ class Player:
         def len(self) -> int:
             return len(self._contents)
 
-        def add(self, *new_items: Item | Armor, return_detail: bool = False):
-            failed: dict[str, tuple[Item | Armor, str]] = {}
+        def add(self, *new_items: Item | Armor):
+            self.failed: dict[str, tuple[Item | Armor, str]] = {}
             for new_item in new_items:
                 for owned_item in self._contents:
                     if owned_item.name == new_item.name and "count" in dir(new_item):
@@ -155,7 +171,7 @@ class Player:
                     elif owned_item.name == new_item.name and "count" not in dir(
                         new_item
                     ):
-                        failed[new_item.name] = (
+                        self.failed[new_item.name] = (
                             new_item,
                             "Failed: item already owned.",
                         )
@@ -163,14 +179,13 @@ class Player:
                 else:
                     self._contents.append(new_item)
 
-            if return_detail is False:
-                return self.outer
-            return failed, self.outer
+            return self.outer
 
     class SpellBook:
         def __init__(self, outer) -> None:
             self._contents: list[Spell] = []
             self.outer = outer
+            self.failed: dict[str, tuple[Spell, str]] = {}
 
         def __call__(self) -> list[Spell]:
             return self._contents
@@ -178,12 +193,12 @@ class Player:
         def len(self) -> int:
             return len(self._contents)
 
-        def add(self, *new_spells: Spell, return_detail: bool = True):
-            failed: dict[str, tuple[Spell, str]] = {}
+        def add(self, *new_spells: Spell):
+            self.failed: dict[str, tuple[Spell, str]] = {}
             for new_spell in new_spells:
                 for learned_spell in self._contents:
                     if learned_spell.name == new_spell.name:
-                        failed[new_spell.name] = (
+                        self.failed[new_spell.name] = (
                             new_spell,
                             "Failed: spell already known.",
                         )
@@ -191,9 +206,7 @@ class Player:
                 else:
                     self._contents.append(new_spell)
 
-            if return_detail is False:
-                return self.outer
-            return failed, self.outer
+            return self.outer
 
     class Money:
         def __init__(self, outer):
@@ -216,9 +229,9 @@ class Player:
                 return True
             return False
 
-        def receive(self, amount: int) -> None:
+        def receive(self, amount: int):
             self._amount += amount
-            return None
+            return self.outer
 
     class Roll:
         def __init__(self, outer) -> None:
@@ -248,70 +261,41 @@ class Player:
         def damage(self) -> int:
             return self.outer.slots.weapon.damage()
 
-    def purchase(self, *items, return_detail: bool = False):
+    def purchase(self, *items: Item | Armor | Weapon | Spell):
         """Method for purchasing anything that will then be added to the
-        character's belongings.
-
-        if return_detail is False:
-            returns bool
-        if return detail is True:
-            returns tuple[bool, dict[what failed and why], Player]"""
+        character's belongings."""
 
         total_cost = sum(item.cost for item in items)
 
-        # Seperate *items into lists of different classes.
         weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
         items_and_armor = [i_a for i_a in items if isinstance(i_a, (Item, Armor))]
         spells = [spell for spell in items if isinstance(spell, Spell)]
-
-        # Empty dict for failed purchases if return_detail=True
-        failed: dict[str, dict[str, tuple[Containable, str]]] = {}
 
         if self.money.spend(total_cost) is True:
-            # If player can afford, items will be added and failed additions
-            # will be recorded in failed dict
-            failed["weapons"] = self.weapons.add(*weapons, return_detail=True)[0]  # type: ignore
-            failed["items_and_armor"] = (  # type: ignore
-                self.inventory.add(*items_and_armor, return_detail=True)[0]  # type: ignore
-            )  # type: ignore
-            failed["spells"] = self.spells.add(*spells, return_detail=True)[0]  # type: ignore
+            (
+                self.weapons.add(*weapons)
+                .inventory.add(*items_and_armor)
+                .spells.add(*spells)
+            )
+            return self
 
-            if return_detail is False:
-                return True
-            return True, failed, self
-
-        # If player cannot afford, all items are recorded in failed dict
-        failed["weapons"] = {
-            weapon.name: (weapon, "Failed: Insufficient funds") for weapon in weapons
+        self.weapons.failed = {
+            weapon.name: (weapon, "Failed: Insufficient funds.") for weapon in weapons
         }
-        failed["items_and_armmor"] = {
-            i_a.name: (i_a, "Failed: Insufficient funds") for i_a in items_and_armor
+        self.inventory.failed = {
+            i_a.name: (i_a, "Failed: Insufficient funds.") for i_a in items_and_armor
         }
-        failed["spells"] = {
-            spell.name: (spell, "Failed: Insufficient funds") for spell in spells
+        self.spells.failed = {
+            spell.name: (spell, "Failed: Insufficient funds.") for spell in spells
         }
+        return self
 
-        if return_detail is False:
-            return False
-        return False, failed, self
-
-    def pick_up(self, *items, return_detail: bool = False):
-        """Method for picking up items without paying for them.
-
-        if return_detail is False:
-            returns Player
-        if return_detail is True:
-            returns tuple[dict[what failed and why], Player]"""
+    def pick_up(self, *items):
+        """Method for picking up items without paying for them."""
 
         weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
         items_and_armor = [i_a for i_a in items if isinstance(i_a, (Item, Armor))]
         spells = [spell for spell in items if isinstance(spell, Spell)]
 
-        failed: dict[str, dict[str, tuple[Containable, str]]] = {}
-        failed["weapons"] = self.weapons.add(*weapons)[0]  # type: ignore
-        failed["items_and_armor"] = self.inventory.add(*items_and_armor)[0]  # type: ignore
-        failed["spells"] = self.spells.add(*spells)[0]  # type: ignore
-
-        if return_detail is False:
-            return self
-        return failed, self
+        self.weapons.add(*weapons).inventory.add(*items_and_armor).spells.add(*spells)
+        return self

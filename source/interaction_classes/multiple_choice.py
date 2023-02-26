@@ -2,13 +2,13 @@ from typing import Callable
 
 
 class MultipleChoice:
-    """Class for carrying"""
+    """Class for storing and presenting a multiple choice situation to a player."""
 
     def __init__(
         self,
         message: str,
-        options: dict[int, str],
-        outcomes: dict[int, tuple[Callable]],
+        options: tuple[str],
+        outcomes: tuple[tuple[Callable]],
     ):
         self.message = message
         self.options = options

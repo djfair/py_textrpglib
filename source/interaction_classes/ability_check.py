@@ -1,4 +1,4 @@
-from character_classes import Player
+from ..character_classes import Player
 from typing import Callable
 
 
@@ -42,7 +42,7 @@ class AbilityCheck:
         for outcome in self.on_fail:
             outcome()
 
-    def constition(self, dc: int):
+    def constitution(self, dc: int):
         if Player.instance.roll.constitution() >= dc:
             for outcome in self.on_pass:
                 outcome()
