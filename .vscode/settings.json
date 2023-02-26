@@ -13,7 +13,8 @@
     "python.linting.pylamaEnabled": true,
     "python.linting.pycodestyleEnabled": false,
     "[python]": {
-        "editor.formatOnType": true
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.linting.pydocstyleEnabled": false
 }

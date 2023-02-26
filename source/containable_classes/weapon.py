@@ -1,6 +1,7 @@
 from containable import Containable, dataclass
 from dice import Dice
 
+
 @dataclass
 class Weapon(Containable):
     attack: Dice
@@ -13,6 +14,5 @@ class Weapon(Containable):
             if self.ammo < 0:
                 self.ammo = 0
             return self
-        print(
-            f"Error: method fire() used on weapon {self.name} with ammo set to None.")
+        print(f"Error: method fire() used on weapon {self.name} with ammo set to None.")
         raise TypeError

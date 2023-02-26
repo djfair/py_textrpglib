@@ -1,12 +1,14 @@
 from containable import Containable, dataclass
-from funcs import ProxyFunc
+from typing import Callable
+
 
 @dataclass
 class Spell(Containable):
     name: str
     weight: int
     desc: str
-    effect: ProxyFunc | list[ProxyFunc]
+    effects: tuple[Callable]
 
     def cast(self, target=None):
-        pass
+        for effect in self.effects:
+            effect()
