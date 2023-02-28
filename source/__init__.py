@@ -7,15 +7,23 @@ Number formatting rules
 : Weight is given in grams.
 """
 
-from .character_classes import Player, NPC
-from .containable_classes import Armor, Item, Spell, Weapon
-from .funcs import ProxyCallable, listen_for_enter
-from .interaction_classes import AbilityCheck, DialogBranch, MultipleChoice
-from .dice import Dice
+from .character_classes.player import player
+from .character_classes.npc import NPC
+from .containable_classes.armor import Armor
+from .containable_classes.item import Item
+from .containable_classes.spell import Spell
+from .containable_classes.weapon import Weapon
+from .funcs.proxy_callable import ProxyCallable
+from .funcs.listen_for_enter import listen_for_enter
+from .interaction_classes.ability_check import AbilityCheck
+from .interaction_classes.dialog_branch import DialogBranch
+from .interaction_classes.multiple_choice import MultipleChoice
+from .interaction_classes.trade import Trade
+from .dice_class.dice import Dice
 
 
 __all__ = [
-    "Player",
+    "player",
     "NPC",
     "Armor",
     "Item",
@@ -27,7 +35,5 @@ __all__ = [
     "AbilityCheck",
     "DialogBranch",
     "MultipleChoice",
-    "player",
+    "Trade",
 ]
-
-player = Player("Default_Player_Name")
