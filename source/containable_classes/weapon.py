@@ -1,5 +1,5 @@
 from .containable import Containable, dataclass
-from ..dice import Dice
+from ..dice_class.dice import Dice
 
 
 @dataclass

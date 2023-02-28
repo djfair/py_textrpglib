@@ -1,5 +1,8 @@
-from ..dice import Dice
-from ..containable_classes import Armor, Item, Spell, Weapon
+from ..dice_class.dice import Dice
+from ..containable_classes.armor import Armor
+from ..containable_classes.item import Item
+from ..containable_classes.spell import Spell
+from ..containable_classes.weapon import Weapon
 
 
 class Player:
@@ -46,8 +49,7 @@ class Player:
             self.wisdom = 10
             self.charisma = 10
             self.constitution = 10
-            self.initiative = 10
-            self.max_hp = 10
+            self.initiative = 0
             self.outer = outer
 
         def assign(
@@ -121,7 +123,7 @@ class Player:
         def __init__(self, outer) -> None:
             self._contents: list[Weapon] = []
             self.outer = outer
-            self.failed: dict[str, tuple[Weapon, str]] = {}
+            self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Weapon]:
             return self._contents
@@ -130,7 +132,7 @@ class Player:
             return len(self._contents)
 
         def add(self, *new_weapons: Weapon):
-            self.failed: dict[str, tuple[Weapon, str]] = {}
+            self.failed: dict[str, str] = {}
             for new_weapon in new_weapons:
                 for owned_weapon in self._contents:
                     if (
@@ -140,20 +142,24 @@ class Player:
                         owned_weapon.ammo += new_weapon.ammo  # type: ignore
                         break
                     if owned_weapon.name == new_weapon.name and new_weapon.ammo is None:
-                        self.failed[new_weapon.name] = (
-                            new_weapon,
-                            "Failed: Weapon already owned.",
-                        )
+                        self.failed[new_weapon.name] = "Failed: Weapon already owned."
                 else:
                     self._contents.append(new_weapon)
+            return self.outer
 
+        def remove(self, *weapons: Weapon):
+            for weapon in weapons:
+                for owned_weapon in self._contents:
+                    if weapon.name == owned_weapon.name:
+                        self._contents.remove(owned_weapon)
+                        break
             return self.outer
 
     class Inventory:
         def __init__(self, outer) -> None:
             self._contents: list[Item | Armor] = []
             self.outer = outer
-            self.failed: dict[str, tuple[Item | Armor, str]] = {}
+            self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Item | Armor]:
             return self._contents
@@ -162,7 +168,7 @@ class Player:
             return len(self._contents)
 
         def add(self, *new_items: Item | Armor):
-            self.failed: dict[str, tuple[Item | Armor, str]] = {}
+            self.failed: dict[str, str] = {}
             for new_item in new_items:
                 for owned_item in self._contents:
                     if owned_item.name == new_item.name and "count" in dir(new_item):
@@ -171,21 +177,33 @@ class Player:
                     elif owned_item.name == new_item.name and "count" not in dir(
                         new_item
                     ):
-                        self.failed[new_item.name] = (
-                            new_item,
-                            "Failed: item already owned.",
-                        )
+                        self.failed[new_item.name] = "Failed: item already owned."
                         break
                 else:
                     self._contents.append(new_item)
+            return self.outer
 
+        def remove(self, *items_or_armor: Item | Armor):
+            for i_a in items_or_armor:
+                if isinstance(i_a, Item):
+                    for owned_i_a in self._contents:
+                        if i_a.name == owned_i_a.name and isinstance(owned_i_a, Item):
+                            owned_i_a.set_count(owned_i_a.count - i_a.count)
+                            if owned_i_a.count < 1:
+                                self._contents.remove(owned_i_a)
+                            break
+                else:
+                    for owned_i_a in self._contents:
+                        if i_a.name == owned_i_a.name:
+                            self._contents.remove(owned_i_a)
+                            break
             return self.outer
 
     class SpellBook:
         def __init__(self, outer) -> None:
             self._contents: list[Spell] = []
             self.outer = outer
-            self.failed: dict[str, tuple[Spell, str]] = {}
+            self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Spell]:
             return self._contents
@@ -194,18 +212,22 @@ class Player:
             return len(self._contents)
 
         def add(self, *new_spells: Spell):
-            self.failed: dict[str, tuple[Spell, str]] = {}
+            self.failed: dict[str, str] = {}
             for new_spell in new_spells:
                 for learned_spell in self._contents:
                     if learned_spell.name == new_spell.name:
-                        self.failed[new_spell.name] = (
-                            new_spell,
-                            "Failed: spell already known.",
-                        )
+                        self.failed[new_spell.name] = "Failed: spell already known."
                         break
                 else:
                     self._contents.append(new_spell)
+            return self.outer
 
+        def remove(self, *spells: Spell):
+            for spell in spells:
+                for known_spell in self._contents:
+                    if spell.name == known_spell.name:
+                        self._contents.remove(known_spell)
+                        break
             return self.outer
 
     class Money:
@@ -261,11 +283,16 @@ class Player:
         def damage(self) -> int:
             return self.outer.slots.weapon.damage()
 
-    def purchase(self, *items: Item | Armor | Weapon | Spell):
+    def purchase(self, *items: Item | Armor | Weapon | Spell) -> bool:
         """Method for purchasing anything that will then be added to the
         character's belongings."""
 
-        total_cost = sum(item.cost for item in items)
+        total_cost = 0
+        for item in items:
+            if isinstance(item, Item):
+                total_cost += item.cost * item.count
+            else:
+                total_cost += item.cost
 
         weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
         items_and_armor = [i_a for i_a in items if isinstance(i_a, (Item, Armor))]
@@ -277,20 +304,20 @@ class Player:
                 .inventory.add(*items_and_armor)
                 .spells.add(*spells)
             )
-            return self
+            return True
 
         self.weapons.failed = {
-            weapon.name: (weapon, "Failed: Insufficient funds.") for weapon in weapons
+            weapon.name: "Failed: Insufficient funds." for weapon in weapons
         }
         self.inventory.failed = {
-            i_a.name: (i_a, "Failed: Insufficient funds.") for i_a in items_and_armor
+            i_a.name: "Failed: Insufficient funds." for i_a in items_and_armor
         }
         self.spells.failed = {
-            spell.name: (spell, "Failed: Insufficient funds.") for spell in spells
+            spell.name: "Failed: Insufficient funds." for spell in spells
         }
-        return self
+        return False
 
-    def pick_up(self, *items):
+    def pick_up(self, *items: Item | Armor | Weapon | Spell):
         """Method for picking up items without paying for them."""
 
         weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
@@ -299,3 +326,6 @@ class Player:
 
         self.weapons.add(*weapons).inventory.add(*items_and_armor).spells.add(*spells)
         return self
+
+
+player = Player("Default_Player_Name")

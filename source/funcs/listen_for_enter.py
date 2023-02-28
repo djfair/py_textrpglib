@@ -9,5 +9,6 @@ def listen_for_enter(*outcomes: Callable, message: str = "to continue") -> None:
         message: prompt to be shown after 'Press ENTER', e.g. '... to continue'"""
 
     input(f"\t> Press ENTER {message}")
+    print(" ")
     for outcome in outcomes:
         outcome()
