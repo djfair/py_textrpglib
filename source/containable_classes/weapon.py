@@ -6,22 +6,24 @@ from ..dice_class.dice import Dice
 class Weapon(Containable):
     attack: Dice
     damage: Dice
-    ammo: int | None = None
+    ammo: int | None = 1
 
     def set_ammo(self, amount: int):
-        if self.ammo is not None:
-            self.ammo += amount
+        """Sets ammo to given amount. Use when stocking a character or NPC's inventory, and
+        when creating loot caches for player reward."""
+        try:
+            self.ammo += amount  # type: ignore
             return self
-        print(
-            f"Error: method set_ammo() used on weapon {self.name} with ammo set to None."
-        )
-        raise TypeError
+        except TypeError:
+            print(
+                f"TypeError: method set_ammo used for weapon '{self.name}' "
+                "with attribute 'ammo' set to None."
+            )
+            return self
 
-    def fire(self, ammo_spent: int = 1):
+    def fire(self, ammo_spent: int = 1) -> None:
+        """Spends weapon's ammo if weapon's ammo is not None. With no args, will spend 1 ammo."""
         if self.ammo is not None:
             self.ammo -= ammo_spent
             if self.ammo < 0:
                 self.ammo = 0
-            return self
-        print(f"Error: method fire() used on weapon {self.name} with ammo set to None.")
-        raise TypeError

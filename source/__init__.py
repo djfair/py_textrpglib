@@ -20,6 +20,8 @@ from .interaction_classes.dialog_branch import DialogBranch
 from .interaction_classes.multiple_choice import MultipleChoice
 from .interaction_classes.trade import Trade
 from .dice_class.dice import Dice
+from .location_classes.location import Location
+from .location_classes.world_map import world_map
 
 
 __all__ = [
@@ -36,4 +38,6 @@ __all__ = [
     "DialogBranch",
     "MultipleChoice",
     "Trade",
+    "Location",
+    "world_map",
 ]

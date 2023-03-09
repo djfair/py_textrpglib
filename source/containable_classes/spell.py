@@ -6,8 +6,7 @@ from typing import Callable
 class Spell(Containable):
     name: str
     desc: str
-    effects: tuple[Callable]
+    effect: Callable
 
-    def cast(self, target=None):
-        for effect in self.effects:
-            effect()
+    def cast(self):
+        self.effect()

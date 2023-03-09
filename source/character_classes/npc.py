@@ -14,14 +14,14 @@ class NPC:
         self.name = name
         self.hp = self.HitPoints()
         self.ac = 10
-        self.scores = self.Scores(outer=self)
-        self.slots = self.Slots(outer=self)
-        self.weapons = self.Weapons(outer=self)
-        self.inventory = self.Inventory(outer=self)
-        self.spells = self.SpellBook(outer=self)
-        self.money = self.Money(outer=self)
-        self.roll = self.Roll(outer=self)
-        self.dialog = self.Dialog(outer=self)
+        self.scores = self.Scores(owner=self)
+        self.slots = self.Slots(owner=self)
+        self.weapons = self.Weapons(owner=self)
+        self.inventory = self.Inventory(owner=self)
+        self.spells = self.SpellBook(owner=self)
+        self.money = self.Money(owner=self)
+        self.roll = self.Roll(owner=self)
+        self.dialog = self.Dialog(owner=self)
         self.location: Callable
 
     def __call__(self):
@@ -43,8 +43,14 @@ class NPC:
                 self._hp = 0 + self._max
             self._hp += amount
 
+        def take_damage(self, amount: int) -> None:
+            if self._hp < amount:
+                self._hp = 0
+            else:
+                self._hp -= amount
+
     class Scores:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self.strength = 10
             self.dexterity = 10
             self.intelligence = 10
@@ -52,7 +58,7 @@ class NPC:
             self.charisma = 10
             self.constitution = 10
             self.initiative = 0
-            self.outer = outer
+            self.owner = owner
 
         def assign(
             self,
@@ -77,16 +83,16 @@ class NPC:
             if constitution is not None:
                 self.constitution = constitution
 
-            self.outer.hp.max = (
+            self.owner.hp.max = (
                 10 + (self.strength - 10) // 2 + (self.constitution - 10) // 2
             )
-            self.outer.ac = 10 + (self.dexterity - 10) // 2 + self.outer.slots.armor.mod
+            self.owner.ac = 10 + (self.dexterity - 10) // 2 + self.owner.slots.armor.mod
             self.initiative = (self.dexterity - 10) // 2 + (self.intelligence - 10) // 2
 
-            return self.outer
+            return self.owner
 
     class Slots:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self.armor: Armor = Armor(name="No armor", cost=0, desc="No armor", mod=0)
             self.weapon: Weapon = Weapon(
                 name="Fist",
@@ -95,36 +101,36 @@ class NPC:
                 attack=Dice(0),
                 damage=Dice(0, 4),
             )
-            self.outer = outer
+            self.owner = owner
 
         def equip(self, armor_or_weapon: Armor | Weapon):
             if isinstance(armor_or_weapon, Armor):
                 self.armor = armor_or_weapon
-                self.outer.ac = 10 + self.outer.scores.dexterity + self.armor.mod
+                self.owner.ac = 10 + self.owner.scores.dexterity + self.armor.mod
             elif isinstance(armor_or_weapon, Weapon):
                 self.weapon = armor_or_weapon
-            return self.outer
+            return self.owner
 
         def stow_armor(self):
-            self.equip(Armor(name="No armor", cost=0, desc="No armor", mod=0))
-            return self.outer
+            self.equip(Armor("No armor", cost=0, desc="No armor", mod=0))
+            return self.owner
 
         def stow_weapon(self):
             self.equip(
                 Weapon(
-                    name="Fist",
+                    "Fist",
                     cost=0,
                     desc="A closed fist",
                     attack=Dice(0),
                     damage=Dice(0, 4),
                 )
             )
-            return self.outer
+            return self.owner
 
     class Weapons:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self._contents: list[Weapon] = []
-            self.outer = outer
+            self.owner = owner
             self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Weapon]:
@@ -136,7 +142,7 @@ class NPC:
         def add(self, *new_weapons: Weapon):
             for new_weapon in new_weapons:
                 self._contents.append(new_weapon)
-            return self.outer
+            return self.owner
 
         def remove(self, *weapons: Weapon):
             for weapon in weapons:
@@ -144,12 +150,12 @@ class NPC:
                     if weapon.name == owned_weapon.name:
                         self._contents.remove(owned_weapon)
                         break
-            return self.outer
+            return self.owner
 
     class Inventory:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self._contents: list[Item | Armor] = []
-            self.outer = outer
+            self.owner = owner
             self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Item | Armor]:
@@ -171,7 +177,7 @@ class NPC:
                         break
                 else:
                     self._contents.append(new_item)
-            return self.outer
+            return self.owner
 
         def remove(self, *items_or_armor: Item | Armor):
             for i_a in items_or_armor:
@@ -187,12 +193,12 @@ class NPC:
                         if i_a.name == owned_i_a.name:
                             self._contents.remove(owned_i_a)
                             break
-            return self.outer
+            return self.owner
 
     class SpellBook:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self._contents: list[Spell] = []
-            self.outer = outer
+            self.owner = owner
             self.failed: dict[str, str] = {}
 
         def __call__(self) -> list[Spell]:
@@ -205,7 +211,7 @@ class NPC:
             self.failed: dict[str, str] = {}
             for new_spell in new_spells:
                 self._contents.append(new_spell)
-            return self.outer
+            return self.owner
 
         def remove(self, *spells: Spell):
             for spell in spells:
@@ -213,12 +219,12 @@ class NPC:
                     if spell.name == known_spell.name:
                         self._contents.remove(known_spell)
                         break
-            return self.outer
+            return self.owner
 
     class Money:
-        def __init__(self, outer):
+        def __init__(self, owner):
             self._amount: int = 0
-            self.outer = outer
+            self.owner = owner
 
         def __call__(self) -> int:
             return self._amount
@@ -238,43 +244,46 @@ class NPC:
 
         def receive(self, amount: int):
             self._amount += amount
-            return self.outer
+            return self.owner
 
     class Roll:
-        def __init__(self, outer) -> None:
-            self.outer = outer
+        def __init__(self, owner) -> None:
+            self.owner = owner
 
         def strength(self) -> int:
-            return Dice((self.outer.scores.strength - 10) // 2)()
+            return Dice((self.owner.scores.strength - 10) // 2)()
 
         def dexterity(self) -> int:
-            return Dice((self.outer.scores.dexterity - 10) // 2)()
+            return Dice((self.owner.scores.dexterity - 10) // 2)()
 
         def intelligence(self) -> int:
-            return Dice((self.outer.scores.intelligence - 10) // 2)()
+            return Dice((self.owner.scores.intelligence - 10) // 2)()
 
         def wisdom(self) -> int:
-            return Dice((self.outer.scores.wisdom - 10) // 2)()
+            return Dice((self.owner.scores.wisdom - 10) // 2)()
 
         def charisma(self) -> int:
-            return Dice((self.outer.scores.charisma - 10) // 2)()
+            return Dice((self.owner.scores.charisma - 10) // 2)()
 
         def constitution(self) -> int:
-            return Dice((self.outer.scores.constitution - 10) // 2)()
+            return Dice((self.owner.scores.constitution - 10) // 2)()
+
+        def initiative(self) -> int:
+            return Dice(self.owner.scores.initiative)()
 
         def attack(self) -> int:
-            return self.outer.slots.weapon.attack()
+            return self.owner.slots.weapon.attack()
 
         def damage(self) -> int:
-            return self.outer.slots.weapon.damage()
+            return self.owner.slots.weapon.damage()
 
     class Dialog:
-        def __init__(self, outer) -> None:
+        def __init__(self, owner) -> None:
             self._dialog_trees: dict[
                 int, DialogBranch | MultipleChoice | AbilityCheck
             ] = {}
             self._current_chapter: int = 0
-            self.outer = outer
+            self.owner = owner
 
         def add(self, *dialog_trees: DialogBranch | MultipleChoice | AbilityCheck):
             for dialog_tree in dialog_trees:

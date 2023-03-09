@@ -1,4 +1,4 @@
-from ...source import Weapon, Dice
+from source import Weapon, Dice
 
 
 colt45 = Weapon(

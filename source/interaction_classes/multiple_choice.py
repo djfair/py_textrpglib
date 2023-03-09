@@ -23,7 +23,7 @@ class MultipleChoice:
                 print(f"\t{i + 1}. {option}")
             print(" ")
             chosen_option = (
-                int(input(f"\t> What you want to say? [1-{len(self.options)}]: ")) - 1
+                int(input(f"\t> What you want to do? [1-{len(self.options)}]: ")) - 1
             )
             print(" ")
             chosen_outcomes = self.outcomes[chosen_option]
