@@ -21,7 +21,7 @@ class Weapon(Containable):
             )
             return self
 
-    def fire(self, ammo_spent: int = 1) -> None:
+    def fire_if_applicable(self, ammo_spent: int = 1) -> None:
         """Spends weapon's ammo if weapon's ammo is not None. With no args, will spend 1 ammo."""
         if self.ammo is not None:
             self.ammo -= ammo_spent

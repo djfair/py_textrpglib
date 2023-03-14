@@ -3,6 +3,9 @@ from ..containable_classes.armor import Armor
 from ..containable_classes.item import Item
 from ..containable_classes.spell import Spell
 from ..containable_classes.weapon import Weapon
+from ..funcs.separate_containables import separate_containables
+from ..funcs.calculate_containables_cost import calculate_containables_cost
+from typing import Type
 
 
 class Player:
@@ -19,9 +22,7 @@ class Player:
         self.ac = 10
         self.scores = self.Scores(owner=self)
         self.slots = self.Slots(owner=self)
-        self.weapons = self.Weapons(owner=self)
         self.inventory = self.Inventory(owner=self)
-        self.spells = self.SpellBook(owner=self)
         self.money = self.Money(owner=self)
         self.roll = self.Roll(owner=self)
 
@@ -111,6 +112,7 @@ class Player:
 
         def stow_armor(self):
             self.equip(Armor(name="No armor", cost=0, desc="No armor", mod=0))
+            self.owner.ac = 10 + self.owner.scores.dexterity + self.armor.mod
             return self.owner
 
         def stow_weapon(self):
@@ -125,141 +127,136 @@ class Player:
             )
             return self.owner
 
-    class Weapons:
-        def __init__(self, owner) -> None:
-            self._contents: list[Weapon] = []
-            self.owner = owner
-            self.failed: dict[str, str] = {}
-
-        def __call__(self) -> list[Weapon]:
-            return self._contents
-
-        def len(self) -> int:
-            return len(self._contents)
-
-        def add(self, *new_weapons: Weapon):
-            self.failed: dict[str, str] = {}
-            for new_weapon in new_weapons:
-                for owned_weapon in self._contents:
-                    if (
-                        owned_weapon.name == new_weapon.name
-                        and new_weapon.ammo is not None
-                    ):
-                        owned_weapon.ammo += new_weapon.ammo  # type: ignore
-                        break
-                    if owned_weapon.name == new_weapon.name and new_weapon.ammo is None:
-                        self.failed[new_weapon.name] = "Failed: Weapon already owned."
-                else:
-                    self._contents.append(new_weapon)
-            return self.owner
-
-        def remove(self, *weapons: Weapon):
-            for weapon in weapons:
-                for owned_weapon in self._contents:
-                    if weapon.name == owned_weapon.name:
-                        self._contents.remove(owned_weapon)
-                        break
-            return self.owner
-
     class Inventory:
         def __init__(self, owner) -> None:
-            self._contents: list[Item | Armor] = []
+            self._weapons: list[Weapon] = []
+            self._armor: list[Armor] = []
+            self._items: list[Item] = []
+            self._spells: list[Spell] = []
             self.owner = owner
-            self.failed: dict[str, str] = {}
 
-        def __call__(self) -> list[Item | Armor]:
-            return self._contents
+        def __call__(
+            self,
+            filter_type: Type[Weapon]
+            | Type[Armor]
+            | Type[Item]
+            | Type[Spell]
+            | None = None,
+        ):
+            if filter_type is not None:
+                filtered_inventory: list[filter_type] = []  # type: ignore
+                for containable in (
+                    *self._weapons,
+                    *self._armor,
+                    *self._items,
+                    *self._spells,
+                ):
+                    if isinstance(containable, filter_type):
+                        filtered_inventory.append(containable)
+            else:
+                filtered_inventory: list[Weapon | Armor | Item | Spell] = [
+                    *self._weapons,
+                    *self._armor,
+                    *self._items,
+                    *self._spells,
+                ]
+            return tuple(filtered_inventory)
 
-        def len(self) -> int:
-            return len(self._contents)
-
-        def add(self, *new_items: Item | Armor):
-            self.failed: dict[str, str] = {}
-            for new_item in new_items:
-                for owned_item in self._contents:
-                    if owned_item.name == new_item.name and "count" in dir(new_item):
-                        owned_item.count += new_item.count  # type: ignore -- armor already excluded
-                        break
-                    elif owned_item.name == new_item.name and "count" not in dir(
-                        new_item
-                    ):
-                        self.failed[new_item.name] = "Failed: item already owned."
-                        break
-                else:
-                    self._contents.append(new_item)
-            return self.owner
-
-        def remove(self, *items_or_armor: Item | Armor):
-            for i_a in items_or_armor:
-                if isinstance(i_a, Item):
-                    for owned_i_a in self._contents:
-                        if i_a.name == owned_i_a.name and isinstance(owned_i_a, Item):
-                            owned_i_a.set_count(owned_i_a.count - i_a.count)
-                            if owned_i_a.count < 1:
-                                self._contents.remove(owned_i_a)
+        def pick_up_weapons(self, *weapons: Weapon) -> None:
+            for picked_up_weapon in weapons:
+                if picked_up_weapon.ammo is not None:
+                    for owned_weapon in self._weapons:
+                        if (
+                            owned_weapon.name == picked_up_weapon.name
+                            and owned_weapon.ammo is not None
+                        ):
+                            owned_weapon.ammo += picked_up_weapon.ammo
                             break
                 else:
-                    for owned_i_a in self._contents:
-                        if i_a.name == owned_i_a.name:
-                            self._contents.remove(owned_i_a)
-                            break
-            return self.owner
+                    self._weapons.append(picked_up_weapon)
+            return None
 
-    class SpellBook:
-        def __init__(self, owner) -> None:
-            self._contents: list[Spell] = []
-            self.owner = owner
-            self.failed: dict[str, str] = {}
+        def drop_weapons(self, *weapons: Weapon) -> None:
+            for drop_weapon in weapons:
+                for owned_weapon in self._weapons:
+                    if drop_weapon is owned_weapon:
+                        self._weapons.remove(owned_weapon)
+                        break
+            return None
 
-        def __call__(self) -> list[Spell]:
-            return self._contents
+        def pick_up_armor(self, *armor: Armor) -> None:
+            for picked_up_armor in armor:
+                self._armor.append(picked_up_armor)
+            return None
 
-        def len(self) -> int:
-            return len(self._contents)
+        def drop_armor(self, *armor: Armor) -> None:
+            for drop_armor in armor:
+                for owned_armor in self._armor:
+                    if drop_armor is owned_armor:
+                        self._armor.remove(owned_armor)
+                        break
+            return None
 
-        def add(self, *new_spells: Spell):
-            self.failed: dict[str, str] = {}
-            for new_spell in new_spells:
-                for learned_spell in self._contents:
-                    if learned_spell.name == new_spell.name:
-                        self.failed[new_spell.name] = "Failed: spell already known."
+        def pick_up_items(self, *items: Item) -> None:
+            for picked_up_item in items:
+                for owned_item in self._items:
+                    if picked_up_item.name == owned_item.name:
+                        owned_item.count += picked_up_item.count
                         break
                 else:
-                    self._contents.append(new_spell)
-            return self.owner
+                    self._items.append(picked_up_item)
+            return None
 
-        def remove(self, *spells: Spell):
-            for spell in spells:
-                for known_spell in self._contents:
-                    if spell.name == known_spell.name:
-                        self._contents.remove(known_spell)
+        def drop_items(self, *items: Item) -> None:
+            for drop_item in items:
+                for owned_item in self._items:
+                    if drop_item is owned_item:
+                        self._items.remove(owned_item)
                         break
-            return self.owner
+            return None
+
+        def pick_up_spells(self, *spells: Spell) -> None:
+            for picked_up_spell in spells:
+                for owned_spell in self._spells:
+                    if picked_up_spell.name == owned_spell.name:
+                        break
+                else:
+                    self._spells.append(picked_up_spell)
+            return None
+
+        def drop_spells(self, *spells: Spell) -> None:
+            for drop_spell in spells:
+                for owned_spell in self._spells:
+                    if drop_spell is owned_spell:
+                        self._spells.remove(drop_spell)
+                        break
+            return None
 
     class Money:
         def __init__(self, owner):
             self._amount: int = 0
             self.owner = owner
 
-        def __call__(self) -> int:
-            return self._amount
-
-        def __str__(self) -> str:
+        def __call__(self) -> str:
             if self._amount > 0:
                 if self._amount > 99:
                     return f"${self._amount / 100:,.2f}"
                 return f"{self._amount} cents"
             return "no money"
 
-        def spend(self, amount: int) -> bool:
+        def is_enough(self, amount: int) -> bool:
+            """Tests to see if npc has enough money to cover the cost of a purchase."""
             if self._amount >= amount:
-                self._amount -= amount
                 return True
             return False
 
-        def receive(self, amount: int):
+        def spend(self, amount: int) -> None:
+            self._amount -= amount
+            return None
+
+        def receive(self, amount: int) -> None:
             self._amount += amount
-            return self.owner
+            return None
 
     class Roll:
         def __init__(self, owner) -> None:
@@ -292,49 +289,62 @@ class Player:
         def damage(self) -> int:
             return self.owner.slots.weapon.damage()
 
-    def purchase(self, *items: Item | Armor | Weapon | Spell) -> bool:
-        """Method for purchasing anything that will then be added to the
-        character's belongings."""
-
-        total_cost = 0
-        for item in items:
-            if isinstance(item, Item):
-                total_cost += item.cost * item.count
-            else:
-                total_cost += item.cost
-
-        weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
-        items_and_armor = [i_a for i_a in items if isinstance(i_a, (Item, Armor))]
-        spells = [spell for spell in items if isinstance(spell, Spell)]
-
-        if self.money.spend(total_cost) is True:
-            (
-                self.weapons.add(*weapons)
-                .inventory.add(*items_and_armor)
-                .spells.add(*spells)
-            )
+    def purchase(self, *containables: Weapon | Armor | Item | Spell) -> bool:
+        """Method for purchasing anything that will then be added to the npc's belongings."""
+        total_cost = calculate_containables_cost(*containables)
+        if self.money.is_enough(total_cost):
+            self.money.spend(total_cost)
+            weapons, armor, items, spells = separate_containables(*containables)
+            self.inventory.pick_up_weapons(*weapons)
+            self.inventory.pick_up_armor(*armor)
+            self.inventory.pick_up_items(*items)
+            self.inventory.pick_up_spells(*spells)
             return True
-
-        self.weapons.failed = {
-            weapon.name: "Failed: Insufficient funds." for weapon in weapons
-        }
-        self.inventory.failed = {
-            i_a.name: "Failed: Insufficient funds." for i_a in items_and_armor
-        }
-        self.spells.failed = {
-            spell.name: "Failed: Insufficient funds." for spell in spells
-        }
         return False
 
-    def pick_up(self, *items: Item | Armor | Weapon | Spell):
+    def sell(self, *containables: Weapon | Armor | Item | Spell) -> None:
+        """Method for selling things the npc owns."""
+        total_cost = calculate_containables_cost(*containables)
+        self.money.receive(total_cost)
+        weapons, armor, items, spells = separate_containables(*containables)
+        for weapon in weapons:
+            if weapon is self.slots.weapon:
+                self.slots.stow_weapon()
+                break
+        for armor_piece in armor:
+            if armor_piece is self.slots.armor:
+                self.slots.stow_armor
+                break
+        self.inventory.drop_weapons(*weapons)
+        self.inventory.drop_armor(*armor)
+        self.inventory.drop_items(*items)
+        self.inventory.drop_spells(*spells)
+
+    def pick_up(self, *containables: Weapon | Armor | Item | Spell):
         """Method for picking up items without paying for them."""
-
-        weapons = [weapon for weapon in items if isinstance(weapon, Weapon)]
-        items_and_armor = [i_a for i_a in items if isinstance(i_a, (Item, Armor))]
-        spells = [spell for spell in items if isinstance(spell, Spell)]
-
-        self.weapons.add(*weapons).inventory.add(*items_and_armor).spells.add(*spells)
+        weapons, armor, items, spells = separate_containables(*containables)
+        self.inventory.pick_up_weapons(*weapons)
+        self.inventory.pick_up_armor(*armor)
+        self.inventory.pick_up_items(*items)
+        self.inventory.pick_up_spells(*spells)
         return self
+
+    def drop(self, *containables: Weapon | Armor | Item | Spell) -> None:
+        """Method for dropping items. Will automatically stow weapons and armor before dropping."""
+        weapons, armor, items, spells = separate_containables(*containables)
+        for weapon in weapons:
+            if weapon is self.slots.weapon:
+                self.slots.stow_weapon()
+                break
+        for armor_piece in armor:
+            if armor_piece is self.slots.armor:
+                self.slots.stow_armor
+                break
+        self.inventory.drop_weapons(*weapons)
+        self.inventory.drop_armor(*armor)
+        self.inventory.drop_items(*items)
+        self.inventory.drop_spells(*spells)
+        return None
 
 
 player = Player("Default_Player_Name")
